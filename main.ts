@@ -85,6 +85,26 @@ for (const name of shots) {
   if (!SHOT_NAME.test(name)) fail(`screenshots/${name}: a name is letters, digits and . _ -, 1 to 128 characters`);
 }
 
+/** The gate caps every screenshot at 512 KiB with long side at most 1440 and short side at least 800. */
+function checkShot(name: string): void {
+  const path = join(outDir, 'screenshots', name);
+  const bytes = readFileSync(path);
+  if (bytes.length > SCREENSHOT_CAPS.max_bytes) {
+    fail(`screenshots/${name} is ${bytes.length} bytes: the gate caps each screenshot at 512 KiB`);
+  }
+  if (bytes.length < 33 || bytes.readUInt32BE(0) !== 0x89504e47 || bytes.readUInt32BE(4) !== 0x0d0a1a0a) {
+    fail(`screenshots/${name}: not a PNG file`);
+  }
+  const width = bytes.readUInt32BE(16);
+  const height = bytes.readUInt32BE(20);
+  const long = Math.max(width, height);
+  const short = Math.min(width, height);
+  if (long > 1440 || short < 800) {
+    fail(`screenshots/${name} is ${width}x${height}: the gate wants long side at most 1440 and short side at least 800`);
+  }
+}
+for (const name of shots) checkShot(name);
+
 // The dossier is written last: the scorer rebuilds it from this output and compares bytes.
 writeFileSync(
   join(outDir, 'dossier.json'),
